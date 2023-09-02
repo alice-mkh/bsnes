@@ -87,7 +87,7 @@ public:
 	Filter::Render filterRender;
 	Filter::Size filterSize;
 
-	int16 inputState[2][11];
+	int16 inputState[HS_SUPER_NES_MAX_PLAYERS][HS_SUPER_NES_N_BUTTONS];
 
 	char* saveDir;
 };
