@@ -50,6 +50,14 @@ bsnes_core_load_rom (HsCore      *core,
 }
 
 static void
+bsnes_core_poll_input (HsCore *core, HsInputState *input_state)
+{
+  bsnesCore *self = BSNES_CORE (core);
+
+  self->program->inputState = input_state->super_nes;
+}
+
+static void
 bsnes_core_run_frame (HsCore *core)
 {
   bsnesCore *self = BSNES_CORE (core);
@@ -173,6 +181,7 @@ bsnes_core_class_init (bsnesCoreClass *klass)
   HsCoreClass *core_class = HS_CORE_CLASS (klass);
 
   core_class->load_rom = bsnes_core_load_rom;
+  core_class->poll_input = bsnes_core_poll_input;
   core_class->run_frame = bsnes_core_run_frame;
   core_class->reset = bsnes_core_reset;
   core_class->stop = bsnes_core_stop;
@@ -195,26 +204,8 @@ bsnes_core_init (bsnesCore *self)
 }
 
 static void
-bsnes_super_nes_core_button_pressed (HsSuperNesCore *core, guint player, HsSuperNesButton button)
-{
-  bsnesCore *self = BSNES_CORE (core);
-
-  self->program->inputState[player][button] = 1;
-}
-
-static void
-bsnes_super_nes_core_button_released (HsSuperNesCore *core, guint player, HsSuperNesButton button)
-{
-  bsnesCore *self = BSNES_CORE (core);
-
-  self->program->inputState[player][button] = 0;
-}
-
-static void
 bsnes_super_nes_core_init (HsSuperNesCoreInterface *iface)
 {
-  iface->button_pressed = bsnes_super_nes_core_button_pressed;
-  iface->button_released = bsnes_super_nes_core_button_released;
 }
 
 GType

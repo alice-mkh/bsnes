@@ -87,7 +87,7 @@ public:
 	Filter::Render filterRender;
 	Filter::Size filterSize;
 
-	int16 inputState[HS_SUPER_NES_MAX_PLAYERS][HS_SUPER_NES_N_BUTTONS];
+	HsSuperNesInputState inputState;
 
 	char* saveDir;
 };
@@ -392,7 +392,7 @@ auto pollInputDevices(Program* self, uint port, uint device, uint input) -> int1
 			return 0;
 	}
 
-	return self->inputState[hs_player][hs_button];
+	return (self->inputState.pad_buttons[hs_player] & 1 << hs_button) > 0;
 }
 
 auto Program::inputPoll(uint port, uint device, uint input) -> int16
