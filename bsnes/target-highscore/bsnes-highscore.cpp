@@ -36,7 +36,7 @@ bsnes_core_load_rom (HsCore      *core,
   self->context = hs_core_create_software_context (core, 2304, 2160, HS_PIXEL_FORMAT_XRGB8888_REV);
   self->program->context = self->context;
 
-  self->program->saveDir = g_strdup (save_path);
+  g_set_str (&self->program->saveDir, save_path);
 
   self->program->superFamicom.location = string (rom_path);
   self->program->base_name = string (rom_path);
@@ -89,7 +89,24 @@ bsnes_core_stop (HsCore *core)
 }
 
 static gboolean
-bsnes_core_save_data (HsCore  *core,
+bsnes_core_reload_save (HsCore      *core,
+                        const char  *save_path,
+                        GError     **error)
+{
+  bsnesCore *self = BSNES_CORE (core);
+
+  g_set_str (&self->program->saveDir, save_path);
+
+  self->program->load ();
+
+  self->emulator->connect (SuperFamicom::ID::Port::Controller1, SuperFamicom::ID::Device::Gamepad);
+  self->emulator->connect (SuperFamicom::ID::Port::Controller2, SuperFamicom::ID::Device::Gamepad);
+
+  return TRUE;
+}
+
+static gboolean
+bsnes_core_sync_save (HsCore  *core,
                       GError **error)
 {
   bsnesCore *self = BSNES_CORE (core);
@@ -186,7 +203,8 @@ bsnes_core_class_init (bsnesCoreClass *klass)
   core_class->reset = bsnes_core_reset;
   core_class->stop = bsnes_core_stop;
 
-  core_class->save_data = bsnes_core_save_data;
+  core_class->reload_save = bsnes_core_reload_save;
+  core_class->sync_save = bsnes_core_sync_save;
 
   core_class->load_state = bsnes_core_load_state;
   core_class->save_state = bsnes_core_save_state;
