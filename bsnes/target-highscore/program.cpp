@@ -78,8 +78,8 @@ public:
 		vector<uint8_t> program;
 	} bsMemory;
 
-	int16_t audioOut[4000];
-	uint audioLength;
+	int16_t audioOut[4000] = {};
+	uint audioLength = 0;
 
 	HsSoftwareContext *context;
 
@@ -89,7 +89,7 @@ public:
 
 	HsSuperNesInputState inputState;
 
-	char* saveDir;
+	char* saveDir = nullptr;
 };
 
 Program::Program(Emulator::Interface *emulator)
