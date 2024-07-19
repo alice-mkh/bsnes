@@ -27,7 +27,7 @@ bsnes_core_load_rom (HsCore      *core,
 {
   bsnesCore *self = BSNES_CORE (core);
 
-  g_assert (n_rom_paths == 0);
+  g_assert (n_rom_paths == 1);
 
   self->emulator = new SuperFamicom::Interface;
   self->program = new Program (self->emulator);
