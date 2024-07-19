@@ -19,12 +19,15 @@ G_DEFINE_FINAL_TYPE_WITH_CODE (bsnesCore, bsnes_core, HS_TYPE_CORE,
 
 static gboolean
 bsnes_core_load_rom (HsCore      *core,
-                     const char  *rom_path,
+                     const char **rom_paths,
+                     int          n_rom_paths,
                      const char  *save_path,
                      GError     **error)
 
 {
   bsnesCore *self = BSNES_CORE (core);
+
+  g_assert (n_rom_paths == 0);
 
   self->emulator = new SuperFamicom::Interface;
   self->program = new Program (self->emulator);
@@ -38,8 +41,8 @@ bsnes_core_load_rom (HsCore      *core,
 
   g_set_str (&self->program->saveDir, save_path);
 
-  self->program->superFamicom.location = string (rom_path);
-  self->program->base_name = string (rom_path);
+  self->program->superFamicom.location = string (rom_paths[0]);
+  self->program->base_name = string (rom_paths[0]);
 
   self->program->load ();
 
