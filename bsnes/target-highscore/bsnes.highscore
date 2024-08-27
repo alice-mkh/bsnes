@@ -1,7 +1,8 @@
 [Highscore]
 Name=bsnes
 Module=bsnes-highscore.so
-Copyright=Copyright (C) 2004-2020 byuu et al
+Authors: byuu et all;
+Copyright=Copyright (C) 2004-2020 byuu et al;
 Website=https://bsnes.org/
 License=GPL-3.0-or-later
 Platforms=SuperNintendoEntertainmentSystem;
