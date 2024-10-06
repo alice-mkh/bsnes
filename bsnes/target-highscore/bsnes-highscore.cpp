@@ -36,7 +36,7 @@ bsnes_core_load_rom (HsCore      *core,
   self->program->filterSize = &Filter::None::size;
   self->program->updateVideoPalette ();
 
-  self->context = hs_core_create_software_context (core, 2304, 2160, HS_PIXEL_FORMAT_XRGB8888_REV);
+  self->context = hs_core_create_software_context (core, 2304, 2160, HS_PIXEL_FORMAT_B8G8R8X8);
   self->program->context = self->context;
 
   g_set_str (&self->program->saveDir, save_path);
