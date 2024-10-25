@@ -72,7 +72,7 @@ bsnes_core_run_frame (HsCore *core)
 }
 
 static void
-bsnes_core_reset (HsCore *core)
+bsnes_core_reset (HsCore *core, gboolean hard)
 {
   bsnesCore *self = BSNES_CORE (core);
 
