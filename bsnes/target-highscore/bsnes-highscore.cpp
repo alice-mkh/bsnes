@@ -201,6 +201,17 @@ bsnes_core_get_channels (HsCore *core)
   return 2;
 }
 
+static HsRegion
+bsnes_core_get_region (HsCore *core)
+{
+  bsnesCore *self = BSNES_CORE (core);
+
+  if (self->program->superFamicom.region == "NTSC")
+    return HS_REGION_NTSC;
+  else
+    return HS_REGION_PAL;
+}
+
 static void
 bsnes_core_class_init (bsnesCoreClass *klass)
 {
@@ -223,6 +234,8 @@ bsnes_core_class_init (bsnesCoreClass *klass)
 
   core_class->get_sample_rate = bsnes_core_get_sample_rate;
   core_class->get_channels = bsnes_core_get_channels;
+
+  core_class->get_region = bsnes_core_get_region;
 }
 
 static void
