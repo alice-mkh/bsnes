@@ -218,6 +218,8 @@ auto Program::load() -> void {
 	emulator->unload();
 	emulator->load();
 
+	emulator->configure("Video/BlurEmulation", false);
+
 	// per-game hack overrides
 	auto title = superFamicom.title;
 	auto region = superFamicom.region;
