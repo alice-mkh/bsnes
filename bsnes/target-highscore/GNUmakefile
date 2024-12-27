@@ -3,7 +3,7 @@ local := false
 openmp := true
 flags += -Wno-narrowing -Wno-multichar -g -fPIC -fvisibility=hidden
 
-version := $(shell git describe --always --tags --exclude=nightly | sed -E "s/^v//")
+version := $(shell git describe --always --tags --dirty --exclude=nightly | sed -E "s/^v//")
 ifeq ($(version),)
   version := 115
 endif
