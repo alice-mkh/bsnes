@@ -46,6 +46,7 @@ struct Program : Emulator::Platform
 	string base_name;
 
 	bool overscan = false;
+	int colorburstPhase = 0;
 
 	Emulator::Interface *emulator;
 
@@ -322,6 +323,9 @@ auto Program::videoFrame(const uint16* data, uint pitch, uint width, uint height
 	hs_rectangle_init (&rect, 0, 0, filterWidth, filterHeight);
 	hs_software_context_set_area (context, &rect);
 	hs_software_context_set_row_stride (context, filterWidth << 2);
+	hs_software_context_set_colorburst_phase(context, colorburstPhase);
+
+	colorburstPhase ^= 1;
 }
 
 // Double the fun!
