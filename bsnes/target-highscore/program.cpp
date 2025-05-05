@@ -45,7 +45,6 @@ struct Program : Emulator::Platform
 
 	string base_name;
 
-	bool overscan = false;
 	int colorburstPhase = 0;
 
 	Emulator::Interface *emulator;
@@ -299,31 +298,27 @@ auto Program::load(uint id, string name, string type, vector<string> options) ->
 }
 
 auto Program::videoFrame(const uint16* data, uint pitch, uint width, uint height, uint scale) -> void {
-	if (!overscan)
-	{
-		uint multiplier = height / 240;
-		data += 8 * (pitch >> 1) * multiplier;
-		height -= 16 * multiplier;
-	}
-
-	uint filterWidth = width, filterHeight = height;
-
-	filterSize(filterWidth, filterHeight);
+	filterSize(width, height);
 
 	// Scale the NTSC filter properly for HD Mode 7
-	if ((scale > 1) && (filterWidth == 602))
+	if ((scale > 1) && (width == 602))
 	{
-		filterWidth = 301 * scale;
+		width = 301 * scale;
 	}
 
 	auto *fb = hs_software_context_get_framebuffer (context);
-	filterRender(palette, (uint32*) fb, filterWidth << 2, (const uint16_t*)data, pitch, width, height);
+	filterRender(palette, (uint32*) fb, width << 2, (const uint16_t*)data, pitch, width, height);
 
 	HsRectangle rect;
-	hs_rectangle_init (&rect, 0, 0, filterWidth, filterHeight);
+	hs_rectangle_init (&rect, 0, 0, width, height);
 	hs_software_context_set_area (context, &rect);
-	hs_software_context_set_row_stride (context, filterWidth << 2);
+	hs_software_context_set_row_stride (context, width << 2);
 	hs_software_context_set_colorburst_phase(context, colorburstPhase);
+
+	uint multiplier = height / 240;
+	HsBorder overscan;
+	hs_border_init (&overscan, 0, 8 * multiplier);
+	hs_software_context_set_overscan(context, &overscan);
 
 	colorburstPhase ^= 1;
 }

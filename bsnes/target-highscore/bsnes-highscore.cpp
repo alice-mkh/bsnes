@@ -178,7 +178,7 @@ bsnes_core_get_aspect_ratio (HsCore *core)
   bsnesCore *self = BSNES_CORE (core);
 
   double width = 256;
-  double height = 224;
+  double height = 240;
   double par;
 
   if (self->program->superFamicom.region == "NTSC")
