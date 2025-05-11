@@ -219,6 +219,7 @@ auto Program::load() -> void {
 	emulator->load();
 
 	emulator->configure("Video/BlurEmulation", false);
+	emulator->configure("Hacks/PPU/Deinterlace", false);
 
 	// per-game hack overrides
 	auto title = superFamicom.title;
@@ -309,18 +310,22 @@ auto Program::videoFrame(const uint16* data, uint pitch, uint width, uint height
 	auto *fb = hs_software_context_get_framebuffer (context);
 	filterRender(palette, (uint32*) fb, width << 2, (const uint16_t*)data, pitch, width, height);
 
+	HsInterlacingMode interlacing_mode = (HsInterlacingMode) emulator->interlaceField ();
+
 	HsRectangle rect;
 	hs_rectangle_init (&rect, 0, 0, width, height);
 	hs_software_context_set_area (context, &rect);
 	hs_software_context_set_row_stride (context, width << 2);
-	hs_software_context_set_colorburst_phase(context, colorburstPhase);
+	hs_software_context_set_colorburst_phase (context, colorburstPhase);
+	hs_software_context_set_interlacing (context, interlacing_mode);
 
 	uint multiplier = height / 240;
 	HsBorder overscan;
 	hs_border_init (&overscan, 0, 8 * multiplier);
 	hs_software_context_set_overscan(context, &overscan);
 
-	colorburstPhase ^= 1;
+	if (interlacing_mode != HS_INTERLACING_ODD_FIELD)
+		colorburstPhase ^= 1;
 }
 
 // Double the fun!
