@@ -1,4 +1,4 @@
-name := bsnes-highscore
+name := bsnes-old-highscore
 local := false
 openmp := true
 flags += -Wno-narrowing -Wno-multichar -g -fPIC -fvisibility=hidden
@@ -23,4 +23,4 @@ all: $(objects)
 install: all out/bsnes.highscore
 	mkdir -p $(libdir)/highscore/cores/
 	cp out/$(name).so $(libdir)/highscore/cores/$(name).so
-	cp out/bsnes.highscore $(libdir)/highscore/cores/bsnes.highscore
+	cp out/bsnes.highscore $(libdir)/highscore/cores/bsnes-old.highscore
