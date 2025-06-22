@@ -307,8 +307,9 @@ auto Program::videoFrame(const uint16* data, uint pitch, uint width, uint height
 		width = 301 * scale;
 	}
 
-	auto *fb = hs_software_context_get_framebuffer (context);
+	auto *fb = hs_software_context_acquire_framebuffer (context);
 	filterRender(palette, (uint32*) fb, width << 2, (const uint16_t*)data, pitch, width, height);
+	hs_software_context_release_framebuffer (context);
 
 	HsInterlacingMode interlacing_mode = (HsInterlacingMode) emulator->interlaceField ();
 
