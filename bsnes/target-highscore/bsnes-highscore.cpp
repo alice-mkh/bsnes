@@ -71,12 +71,14 @@ bsnes_core_run_frame (HsCore *core)
   self->program->audioLength = 0;
 }
 
-static void
-bsnes_core_reset (HsCore *core, gboolean hard)
+static gboolean
+bsnes_core_reset (HsCore *core, gboolean hard, GError **error)
 {
   bsnesCore *self = BSNES_CORE (core);
 
   self->emulator->reset ();
+
+  return TRUE;
 }
 
 static void
