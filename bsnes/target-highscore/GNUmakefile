@@ -21,6 +21,6 @@ all: $(objects)
 	$(strip $(compiler) -o out/$(name).so -shared $(objects) -Wl,--no-undefined -lgomp -Wl,-Bdynamic $(options))
 
 install: all out/bsnes.highscore
-	mkdir -p $(libdir)/highscore/cores/
-	cp out/$(name).so $(libdir)/highscore/cores/$(name).so
-	cp out/bsnes.highscore $(libdir)/highscore/cores/bsnes-old.highscore
+	mkdir -p $(libdir)/highscore/cores/bsnes-old/
+	cp out/$(name).so $(libdir)/highscore/cores/bsnes-old/$(name).so
+	cp out/bsnes.highscore $(libdir)/highscore/cores/bsnes-old/bsnes-old.highscore
