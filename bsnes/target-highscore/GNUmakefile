@@ -1,6 +1,7 @@
-name := bsnes-old-highscore
+name := bsnes-highscore
 local := false
 openmp := true
+
 flags += -Wno-attributes -Wno-narrowing -Wno-multichar -g -fPIC -fvisibility=hidden
 
 version := 115
@@ -20,9 +21,9 @@ out/bsnes.highscore: target-highscore/bsnes.highscore.in
 all: $(objects)
 	$(strip $(compiler) -o out/$(name).so -shared $(objects) -Wl,--no-undefined -lgomp -Wl,-Bdynamic $(options))
 
-core_install_dir := $(libdir)/highscore/cores/bsnes-old
+core_install_dir := $(libdir)/highscore/cores/bsnes
 
 install: all out/bsnes.highscore
 	mkdir -p $(core_install_dir)/
 	cp out/$(name).so $(core_install_dir)/$(name).so
-	cp out/bsnes.highscore $(core_install_dir)/bsnes-old.highscore
+	cp out/bsnes.highscore $(core_install_dir)/bsnes.highscore
