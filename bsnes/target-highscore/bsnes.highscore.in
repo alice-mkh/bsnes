@@ -9,5 +9,6 @@ Website=https://bsnes.org/
 License=GPL-3.0-or-later
 Platforms=SuperNintendoEntertainmentSystem;SuperGameBoy;
 
-[Hacks]
-OpenMPPolicyHack=true
+[Environment]
+# Otherwise OpenMP will busywait, see https://github.com/bsnes-emu/bsnes/issues/254
+OMP_WAIT_POLICY=passive
