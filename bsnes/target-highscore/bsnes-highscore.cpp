@@ -10,12 +10,170 @@ struct _bsnesCore
   Program *program;
 
   HsSoftwareContext *context;
+
+  HsGameBoyModel sgb_model;
+  HsGameBoyModel pending_sgb_model;
+  char *sgb_rom_location;
+  char *sgb2_rom_location;
 };
 
+static void bsnes_game_boy_core_init (HsGameBoyCoreInterface *iface);
 static void bsnes_super_nes_core_init (HsSuperNesCoreInterface *iface);
+static void bsnes_super_game_boy_core_init (HsSuperGameBoyCoreInterface *iface);
 
 G_DEFINE_FINAL_TYPE_WITH_CODE (bsnesCore, bsnes_core, HS_TYPE_CORE,
-                               G_IMPLEMENT_INTERFACE (HS_TYPE_SUPER_NES_CORE, bsnes_super_nes_core_init));
+                               G_IMPLEMENT_INTERFACE (HS_TYPE_GAME_BOY_CORE, bsnes_game_boy_core_init)
+                               G_IMPLEMENT_INTERFACE (HS_TYPE_SUPER_NES_CORE, bsnes_super_nes_core_init)
+                               G_IMPLEMENT_INTERFACE (HS_TYPE_SUPER_GAME_BOY_CORE, bsnes_super_game_boy_core_init));
+
+static void
+setup_input (bsnesCore *self)
+{
+  self->emulator->connect (SuperFamicom::ID::Port::Controller1, SuperFamicom::ID::Device::Gamepad);
+  self->emulator->connect (SuperFamicom::ID::Port::Controller2, SuperFamicom::ID::Device::Gamepad);
+}
+
+static gboolean
+check_sgb (bsnesCore *self, GError **error)
+{
+  if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY) {
+    if (!self->sgb_rom_location) {
+      g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_BIOS, "Missing Super Game Boy ROM");
+      return FALSE;
+    }
+  } else if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY_2) {
+    if (!self->sgb2_rom_location) {
+      g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_BIOS, "Missing Super Game Boy 2 ROM");
+      return FALSE;
+    }
+  } else {
+    g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "bsnes only supports Super Game Boy");
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+static gboolean
+try_migrate_libretro_save (bsnesCore   *self,
+                           const char  *save_path,
+                           GError     **error)
+{
+  g_autoptr (GFile) save_file = g_file_new_for_path (save_path);
+
+  if (!g_file_query_exists (save_file, NULL))
+    return TRUE;
+
+  if (g_file_query_file_type (save_file, G_FILE_QUERY_INFO_NONE, NULL) == G_FILE_TYPE_DIRECTORY)
+    return TRUE;
+
+  HsPlatform platform = hs_core_get_platform (HS_CORE (self));
+  const char *dest_name;
+
+  if (platform == HS_PLATFORM_SUPER_NES) {
+    dest_name = "save.srm";
+  } else if (platform == HS_PLATFORM_SUPER_GAME_BOY) {
+    dest_name = "save.sav";
+  } else {
+    return TRUE;
+  }
+
+  // Make a temporary file
+  g_autofree char *cache_path = hs_core_get_cache_path (HS_CORE (self));
+  g_autoptr (GFile) cache_dir = g_file_new_for_path (cache_path);
+  if (!g_file_query_exists (cache_dir, NULL) &&
+      !g_file_make_directory_with_parents (cache_dir, NULL, error)) {
+    return FALSE;
+  }
+
+  g_autofree char *tmp_path = g_build_filename (cache_path, "bsnes-save-XXXXXX", NULL);
+  tmp_path = g_mkdtemp (tmp_path);
+  g_autoptr (GFile) tmp_file = g_file_new_for_path (tmp_path);
+
+  // Move the old save, replace it with a directory
+  g_autoptr (GFile) tmp_save_file = g_file_get_child (tmp_file, "save");
+  if (!g_file_move (save_file, tmp_save_file, G_FILE_COPY_BACKUP, NULL, NULL, NULL, error))
+    return FALSE;
+
+  if (!g_file_make_directory_with_parents (save_file, NULL, error))
+    return FALSE;
+
+  g_autoptr (GFile) dest_file = g_file_get_child (save_file, dest_name);
+  if (!g_file_move (tmp_save_file, dest_file, G_FILE_COPY_BACKUP, NULL, NULL, NULL, error))
+    return FALSE;
+
+  if (!g_file_delete (tmp_file, NULL, error))
+    return FALSE;
+
+  hs_core_log (HS_CORE (self), HS_LOG_MESSAGE, "Libretro save files migrated successfully");
+
+  return TRUE;
+}
+
+static gboolean
+try_rename_save_files (bsnesCore   *self,
+                       const char  *save_path,
+                       GError     **error)
+{
+  g_autoptr (GFile) save_dir = g_file_new_for_path (save_path);
+
+  HsPlatform platform = hs_core_get_platform (HS_CORE (self));
+  if (platform != HS_PLATFORM_SUPER_NES)
+    return TRUE;
+
+  if (!g_file_query_exists (save_dir, NULL))
+    return TRUE;
+
+  if (g_file_query_file_type (save_dir, G_FILE_QUERY_INFO_NONE, NULL) != G_FILE_TYPE_DIRECTORY)
+    return FALSE;
+
+  // Initially I went with internal names: save.ram, download.ram, time.rtc
+  // For better interoperability, let's rename them to: save.srm, save.psr, save.rtc
+
+  g_autoptr (GFileEnumerator) enumerator = NULL;
+  GFileInfo *info;
+  g_autoptr (GFile) save_file = NULL;
+  g_autoptr (GFile) save_dest = NULL;
+  g_autoptr (GFile) download_file = NULL;
+  g_autoptr (GFile) download_dest = NULL;
+  g_autoptr (GFile) time_file = NULL;
+  g_autoptr (GFile) time_dest = NULL;
+
+  enumerator =
+    g_file_enumerate_children (save_dir, G_FILE_ATTRIBUTE_STANDARD_NAME,
+                               G_FILE_QUERY_INFO_NONE, NULL, error);
+  if (!enumerator)
+    return FALSE;
+
+  while ((info = g_file_enumerator_next_file (enumerator, NULL, error))) {
+    const char *filename = g_file_info_get_name (info);
+
+    if (g_strcmp0 (filename, "save.srm") && (g_str_has_suffix (filename, ".srm") || !g_strcmp0 (filename, "save.ram")) && !save_file) {
+      save_file = g_file_get_child (save_dir, filename);
+      save_dest = g_file_get_child (save_dir, "save.srm");
+    } else if (g_strcmp0 (filename, "save.psr") && (g_str_has_suffix (filename, ".psr") || !g_strcmp0 (filename, "download.ram")) && !download_file) {
+      download_file = g_file_get_child (save_dir, filename);
+      download_dest = g_file_get_child (save_dir, "save.psr");
+    } else if (g_strcmp0 (filename, "save.rtc") && (g_str_has_suffix (filename, ".rtc") || !g_strcmp0 (filename, "time.rtc")) && !time_file) {
+      time_file = g_file_get_child (save_dir, filename);
+      time_dest = g_file_get_child (save_dir, "save.rtc");
+    }
+
+    g_object_unref (info);
+  }
+
+  if (save_file && !g_file_move (save_file, save_dest, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, error))
+    return FALSE;
+  if (download_file && !g_file_move (download_file, download_dest, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, error))
+    return FALSE;
+  if (time_file && !g_file_move (time_file, time_dest, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, error))
+    return FALSE;
+
+  if (save_file || download_file || time_file)
+    hs_core_log (HS_CORE (self), HS_LOG_MESSAGE, "Save files renamed successfully");
+
+  return TRUE;
+}
 
 static gboolean
 bsnes_core_load_rom (HsCore      *core,
@@ -26,8 +184,15 @@ bsnes_core_load_rom (HsCore      *core,
 
 {
   bsnesCore *self = BSNES_CORE (core);
+  HsPlatform platform = hs_core_get_platform (core);
 
   g_assert (n_rom_paths == 1);
+
+  if (!try_migrate_libretro_save (self, save_path, error))
+    return FALSE;
+
+  if (!try_rename_save_files (self, save_path, error))
+    return FALSE;
 
   self->emulator = new SuperFamicom::Interface;
   self->program = new Program (self->emulator);
@@ -41,13 +206,26 @@ bsnes_core_load_rom (HsCore      *core,
 
   g_set_str (&self->program->saveDir, save_path);
 
-  self->program->superFamicom.location = string (rom_paths[0]);
+  if (platform == HS_PLATFORM_SUPER_GAME_BOY) {
+    if (!check_sgb (self, error))
+      return FALSE;
+
+    self->program->gameBoy.location = string (rom_paths[0]);
+
+    if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY)
+      self->program->superFamicom.location = string (self->sgb_rom_location);
+    else
+      self->program->superFamicom.location = string (self->sgb2_rom_location);
+  } else {
+    self->program->superFamicom.location = string (rom_paths[0]);
+  }
+
   self->program->base_name = string (rom_paths[0]);
 
   self->program->load ();
+  self->sgb_model = self->pending_sgb_model;
 
-  self->emulator->connect (SuperFamicom::ID::Port::Controller1, SuperFamicom::ID::Device::Gamepad);
-  self->emulator->connect (SuperFamicom::ID::Port::Controller2, SuperFamicom::ID::Device::Gamepad);
+  setup_input (self);
 
   return TRUE;
 }
@@ -72,11 +250,43 @@ bsnes_core_run_frame (HsCore *core)
 }
 
 static gboolean
+maybe_reload_for_sgb (bsnesCore *self, GError **error)
+{
+  if (hs_core_get_platform (HS_CORE (self)) != HS_PLATFORM_SUPER_GAME_BOY)
+    return TRUE;
+
+  if (self->sgb_model == self->pending_sgb_model)
+    return TRUE;
+
+  if (!check_sgb (self, error))
+    return FALSE;
+
+  if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY)
+    self->program->superFamicom.location = string (self->sgb_rom_location);
+  else
+    self->program->superFamicom.location = string (self->sgb2_rom_location);
+
+  self->program->load ();
+  self->sgb_model = self->pending_sgb_model;
+
+  setup_input (self);
+
+  return TRUE;
+}
+
+static gboolean
 bsnes_core_reset (HsCore *core, gboolean hard, GError **error)
 {
   bsnesCore *self = BSNES_CORE (core);
 
-  self->emulator->reset ();
+  if (hard) {
+    if (hs_core_get_platform (core) == HS_PLATFORM_SUPER_GAME_BOY && self->pending_sgb_model != self->sgb_model)
+      return maybe_reload_for_sgb (self, error);
+
+    self->emulator->power ();
+  } else {
+    self->emulator->reset ();
+  }
 
   return TRUE;
 }
@@ -102,10 +312,15 @@ bsnes_core_reload_save (HsCore      *core,
 
   g_set_str (&self->program->saveDir, save_path);
 
+  if (!try_migrate_libretro_save (self, save_path, error))
+    return FALSE;
+
+  if (!try_rename_save_files (self, save_path, error))
+    return FALSE;
+
   self->program->load ();
 
-  self->emulator->connect (SuperFamicom::ID::Port::Controller1, SuperFamicom::ID::Device::Gamepad);
-  self->emulator->connect (SuperFamicom::ID::Port::Controller2, SuperFamicom::ID::Device::Gamepad);
+  setup_input (self);
 
   return TRUE;
 }
@@ -131,6 +346,11 @@ bsnes_core_load_state (HsCore          *core,
   GError *error = NULL;
   char *data;
   size_t size;
+
+  if (!maybe_reload_for_sgb (self, &error)) {
+    callback (core, &error);
+    return;
+  }
 
   if (!g_file_load_contents (file, NULL, &data, &size, NULL, &error)) {
     callback (core, &error);
@@ -243,11 +463,76 @@ bsnes_core_class_init (bsnesCoreClass *klass)
 static void
 bsnes_core_init (bsnesCore *self)
 {
+  self->pending_sgb_model = HS_GAME_BOY_MODEL_SUPER_GAME_BOY;
+}
+
+static void
+bsnes_game_boy_core_set_model (HsGameBoyCore *core, HsGameBoyModel model)
+{
+  bsnesCore *self = BSNES_CORE (core);
+
+  switch (model) {
+  case HS_GAME_BOY_MODEL_GAME_BOY:
+  case HS_GAME_BOY_MODEL_GAME_BOY_POCKET:
+  case HS_GAME_BOY_MODEL_GAME_BOY_COLOR:
+  case HS_GAME_BOY_MODEL_GAME_BOY_ADVANCE:
+    hs_core_log_literal (HS_CORE (self), HS_LOG_CRITICAL, "bsnes only supports Super Game Boy");
+    break;
+  case HS_GAME_BOY_MODEL_SUPER_GAME_BOY:
+  case HS_GAME_BOY_MODEL_SUPER_GAME_BOY_2:
+    self->pending_sgb_model = model;
+    break;
+  default:
+    g_assert_not_reached ();
+  }
+}
+
+static void
+bsnes_game_boy_core_init (HsGameBoyCoreInterface *iface)
+{
+  iface->set_model = bsnes_game_boy_core_set_model;
 }
 
 static void
 bsnes_super_nes_core_init (HsSuperNesCoreInterface *iface)
 {
+}
+
+static void
+bsnes_super_game_boy_core_set_bios_path (HsSuperGameBoyCore *core,
+                                         HsSuperGameBoyBios  type,
+                                         const char         *path)
+{
+  bsnesCore *self = BSNES_CORE (core);
+
+  switch (type) {
+  case HS_SUPER_GAME_BOY_BIOS_SGB:
+    g_set_str (&self->sgb_rom_location, path);
+    break;
+  case HS_SUPER_GAME_BOY_BIOS_SGB2:
+    g_set_str (&self->sgb2_rom_location, path);
+    break;
+  default:
+    g_assert_not_reached ();
+  }
+}
+
+static HsSuperGameBoyBios
+bsnes_super_game_boy_core_get_used_bios (HsSuperGameBoyCore *core)
+{
+  bsnesCore *self = BSNES_CORE (core);
+
+  if (self->sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY_2)
+    return HS_SUPER_GAME_BOY_BIOS_SGB2;
+  else
+    return HS_SUPER_GAME_BOY_BIOS_SGB;
+}
+
+static void
+bsnes_super_game_boy_core_init (HsSuperGameBoyCoreInterface *iface)
+{
+  iface->set_bios_path = bsnes_super_game_boy_core_set_bios_path;
+  iface->get_used_bios = bsnes_super_game_boy_core_get_used_bios;
 }
 
 GType

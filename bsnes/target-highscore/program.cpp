@@ -445,6 +445,8 @@ auto Program::openRomSuperFamicom(string name, vfs::file::mode mode) -> shared_p
 	{
 		string save_path = string(saveDir).transform("\\", "/");
 
+		save_path.append("/save.srm");
+
 		return vfs::fs::file::open(save_path, mode);
 	}
 
@@ -452,7 +454,30 @@ auto Program::openRomSuperFamicom(string name, vfs::file::mode mode) -> shared_p
 }
 
 auto Program::openRomGameBoy(string name, vfs::file::mode mode) -> shared_pointer<vfs::file> {
-	g_assert_not_reached(); // We don't support SGB atm
+	if(name == "program.rom" && mode == vfs::file::mode::read)
+	{
+		return vfs::memory::file::open(gameBoy.program.data(), gameBoy.program.size());
+	}
+
+	if(name == "save.ram")
+	{
+		string save_path = string(saveDir).transform("\\", "/");
+
+		save_path.append("/save.sav");
+
+		return vfs::fs::file::open(save_path, mode);
+	}
+
+	if(name == "time.rtc")
+	{
+		string save_path = string(saveDir).transform("\\", "/");
+
+		save_path.append("/save.rtc");
+
+		return vfs::fs::file::open(save_path, mode);
+	}
+
+	return {};
 }
 
 auto Program::openRomBSMemory(string name, vfs::file::mode mode) -> shared_pointer<vfs::file> {
