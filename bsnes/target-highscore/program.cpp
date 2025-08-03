@@ -320,12 +320,12 @@ auto Program::videoFrame(const uint16* data, uint pitch, uint width, uint height
 	hs_software_context_set_colorburst_phase (context, colorburstPhase);
 	hs_software_context_set_interlacing (context, interlacing_mode);
 
+	auto region = superFamicom.region;
+
 	uint multiplier = height / 240;
 	HsBorder overscan;
-	hs_border_init (&overscan, 0, 8 * multiplier);
-	hs_software_context_set_overscan(context, &overscan);
-
-	auto region = superFamicom.region;
+	hs_border_init (&overscan, 0, (region == "PAL" ? 0 : 8 * multiplier));
+	hs_software_context_set_overscan (context, &overscan);
 
 	if (interlacing_mode != HS_INTERLACING_ODD_FIELD && region != "PAL")
 		colorburstPhase ^= 1;
