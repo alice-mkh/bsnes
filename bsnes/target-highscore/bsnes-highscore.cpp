@@ -13,8 +13,6 @@ struct _bsnesCore
 
   HsGameBoyModel sgb_model;
   HsGameBoyModel pending_sgb_model;
-  char *sgb_rom_location;
-  char *sgb2_rom_location;
 };
 
 static void bsnes_game_boy_core_init (HsGameBoyCoreInterface *iface);
@@ -33,25 +31,25 @@ setup_input (bsnesCore *self)
   self->emulator->connect (SuperFamicom::ID::Port::Controller2, SuperFamicom::ID::Device::Gamepad);
 }
 
-static gboolean
-check_sgb (bsnesCore *self, GError **error)
+static HsSuperGameBoyFirmware
+get_sgb_firmware_id (bsnesCore *self)
 {
-  if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY) {
-    if (!self->sgb_rom_location) {
-      g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_BIOS, "Missing Super Game Boy ROM");
-      return FALSE;
-    }
-  } else if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY_2) {
-    if (!self->sgb2_rom_location) {
-      g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_BIOS, "Missing Super Game Boy 2 ROM");
-      return FALSE;
-    }
-  } else {
-    g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "bsnes only supports Super Game Boy");
-    return FALSE;
+  if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY_2)
+    return HS_SUPER_GAME_BOY_FIRMWARE_SGB2_ROM;
+
+  return HS_SUPER_GAME_BOY_FIRMWARE_SGB_ROM;
+}
+
+static gboolean
+check_sgb_model (bsnesCore *self, GError **error)
+{
+  if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY ||
+      self->pending_sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY_2) {
+    return TRUE;
   }
 
-  return TRUE;
+  g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "bsnes only supports Super Game Boy");
+  return FALSE;
 }
 
 static gboolean
@@ -207,15 +205,27 @@ bsnes_core_load_rom (HsCore      *core,
   g_set_str (&self->program->saveDir, save_path);
 
   if (platform == HS_PLATFORM_SUPER_GAME_BOY) {
-    if (!check_sgb (self, error))
+    const char *firmware_path;
+
+    hs_core_reset_used_firmware (HS_CORE (self));
+
+    if (!check_sgb_model (self, error))
       return FALSE;
 
     self->program->gameBoy.location = string (rom_paths[0]);
 
-    if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY)
-      self->program->superFamicom.location = string (self->sgb_rom_location);
-    else
-      self->program->superFamicom.location = string (self->sgb2_rom_location);
+    firmware_path = hs_core_query_firmware_path (core, get_sgb_firmware_id (self));
+
+    if (!firmware_path) {
+      if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY_2)
+        g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_FIRMWARE, "Missing Super Game Boy 2 ROM");
+      else
+        g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_FIRMWARE, "Missing Super Game Boy ROM");
+
+      return FALSE;
+    }
+
+    self->program->superFamicom.location = string (firmware_path);
   } else {
     self->program->superFamicom.location = string (rom_paths[0]);
   }
@@ -252,19 +262,31 @@ bsnes_core_run_frame (HsCore *core)
 static gboolean
 maybe_reload_for_sgb (bsnesCore *self, GError **error)
 {
+  const char *firmware_path;
+
   if (hs_core_get_platform (HS_CORE (self)) != HS_PLATFORM_SUPER_GAME_BOY)
     return TRUE;
 
   if (self->sgb_model == self->pending_sgb_model)
     return TRUE;
 
-  if (!check_sgb (self, error))
+  hs_core_reset_used_firmware (HS_CORE (self));
+
+  if (!check_sgb_model (self, error))
     return FALSE;
 
-  if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY)
-    self->program->superFamicom.location = string (self->sgb_rom_location);
-  else
-    self->program->superFamicom.location = string (self->sgb2_rom_location);
+  firmware_path = hs_core_query_firmware_path (HS_CORE (self), get_sgb_firmware_id (self));
+
+  if (!firmware_path) {
+    if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY_2)
+      g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_FIRMWARE, "Missing Super Game Boy 2 ROM");
+    else
+      g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_FIRMWARE, "Missing Super Game Boy ROM");
+
+    return FALSE;
+  }
+
+  self->program->superFamicom.location = string (firmware_path);
 
   self->program->load ();
   self->sgb_model = self->pending_sgb_model;
@@ -499,40 +521,8 @@ bsnes_super_nes_core_init (HsSuperNesCoreInterface *iface)
 }
 
 static void
-bsnes_super_game_boy_core_set_bios_path (HsSuperGameBoyCore *core,
-                                         HsSuperGameBoyBios  type,
-                                         const char         *path)
-{
-  bsnesCore *self = BSNES_CORE (core);
-
-  switch (type) {
-  case HS_SUPER_GAME_BOY_BIOS_SGB:
-    g_set_str (&self->sgb_rom_location, path);
-    break;
-  case HS_SUPER_GAME_BOY_BIOS_SGB2:
-    g_set_str (&self->sgb2_rom_location, path);
-    break;
-  default:
-    g_assert_not_reached ();
-  }
-}
-
-static HsSuperGameBoyBios
-bsnes_super_game_boy_core_get_used_bios (HsSuperGameBoyCore *core)
-{
-  bsnesCore *self = BSNES_CORE (core);
-
-  if (self->sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY_2)
-    return HS_SUPER_GAME_BOY_BIOS_SGB2;
-  else
-    return HS_SUPER_GAME_BOY_BIOS_SGB;
-}
-
-static void
 bsnes_super_game_boy_core_init (HsSuperGameBoyCoreInterface *iface)
 {
-  iface->set_bios_path = bsnes_super_game_boy_core_set_bios_path;
-  iface->get_used_bios = bsnes_super_game_boy_core_get_used_bios;
 }
 
 GType
