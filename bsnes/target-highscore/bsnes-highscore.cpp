@@ -13,6 +13,9 @@ struct _bsnesCore
 
   HsGameBoyModel sgb_model;
   HsGameBoyModel pending_sgb_model;
+
+  gboolean loaded;
+  HsSuperNesAccessory accessory;
 };
 
 static void bsnes_game_boy_core_init (HsGameBoyCoreInterface *iface);
@@ -27,8 +30,18 @@ G_DEFINE_FINAL_TYPE_WITH_CODE (bsnesCore, bsnes_core, HS_TYPE_CORE,
 static void
 setup_input (bsnesCore *self)
 {
-  self->emulator->connect (SuperFamicom::ID::Port::Controller1, SuperFamicom::ID::Device::Gamepad);
-  self->emulator->connect (SuperFamicom::ID::Port::Controller2, SuperFamicom::ID::Device::Gamepad);
+  switch (self->accessory) {
+    case HS_SUPER_NES_ACCESSORY_NONE:
+      self->emulator->connect (SuperFamicom::ID::Port::Controller1, SuperFamicom::ID::Device::Gamepad);
+      self->emulator->connect (SuperFamicom::ID::Port::Controller2, SuperFamicom::ID::Device::Gamepad);
+      break;
+    case HS_SUPER_NES_ACCESSORY_MULTITAP:
+      self->emulator->connect (SuperFamicom::ID::Port::Controller1, SuperFamicom::ID::Device::Gamepad);
+      self->emulator->connect (SuperFamicom::ID::Port::Controller2, SuperFamicom::ID::Device::SuperMultitap);
+      break;
+    default:
+      g_assert_not_reached ();
+  }
 }
 
 static HsSuperGameBoyFirmware
@@ -234,6 +247,7 @@ bsnes_core_load_rom (HsCore      *core,
 
   self->program->load ();
   self->sgb_model = self->pending_sgb_model;
+  self->loaded = TRUE;
 
   setup_input (self);
 
@@ -321,6 +335,7 @@ bsnes_core_stop (HsCore *core)
   delete self->program;
   self->program = NULL;
   self->emulator = NULL;
+  self->loaded = FALSE;
 
   g_clear_object (&self->context);
 }
@@ -516,8 +531,21 @@ bsnes_game_boy_core_init (HsGameBoyCoreInterface *iface)
 }
 
 static void
+bsnes_super_nes_core_set_accessory (HsSuperNesCore      *core,
+                                    HsSuperNesAccessory  accessory)
+{
+  bsnesCore *self = BSNES_CORE (core);
+
+  self->accessory = accessory;
+
+  if (self->loaded)
+    setup_input (self);
+}
+
+static void
 bsnes_super_nes_core_init (HsSuperNesCoreInterface *iface)
 {
+  iface->set_accessory = bsnes_super_nes_core_set_accessory;
 }
 
 static void

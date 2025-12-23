@@ -392,7 +392,9 @@ auto pollInputDevices(Program* self, uint port, uint device, uint input) -> int1
 			return 0; // TODO
 
 		case SuperFamicom::ID::Device::SuperMultitap:
-			return 0; // TODO
+			hs_player += input / 12;
+			hs_button = button_mapping[input % 12];
+			break;
 
 		// TODO: SuperScope/Justifiers.
 		// Do we care? The v94 port hasn't hooked them up. :)
