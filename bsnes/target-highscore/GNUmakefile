@@ -27,3 +27,4 @@ install: all out/bsnes.highscore
 	mkdir -p $(core_install_dir)/
 	cp out/$(name).so $(core_install_dir)/$(name).so
 	cp out/bsnes.highscore $(core_install_dir)/bsnes.highscore
+	cp ../LICENSE.txt $(core_install_dir)/LICENSE.txt
