@@ -320,6 +320,7 @@ bsnes_core_reset (HsCore *core, gboolean hard, GError **error)
       return maybe_reload_for_sgb (self, error);
 
     self->emulator->power ();
+    self->program->colorburstPhase = 0;
   } else {
     self->emulator->reset ();
   }
@@ -396,6 +397,8 @@ bsnes_core_load_state (HsCore          *core,
 
   serializer s ((guchar *) data, size);
   self->emulator->unserialize (s);
+
+  self->program->colorburstPhase = hs_core_get_colorburst_phase (core);
 
   callback (core, NULL);
 }
