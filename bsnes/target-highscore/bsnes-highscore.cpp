@@ -398,7 +398,7 @@ bsnes_core_load_state (HsCore          *core,
   serializer s ((guchar *) data, size);
   self->emulator->unserialize (s);
 
-  self->program->colorburstPhase = hs_core_get_colorburst_phase (core);
+  self->program->colorburstPhase = (hs_core_get_colorburst_offset (core) > 0.1) ? 1 : 0;
 
   callback (core, NULL);
 }

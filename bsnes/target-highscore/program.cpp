@@ -317,18 +317,24 @@ auto Program::videoFrame(const uint16* data, uint pitch, uint width, uint height
 	hs_rectangle_init (&rect, 0, 0, width, height);
 	hs_software_context_set_area (context, &rect);
 	hs_software_context_set_row_stride (context, width << 2);
-	hs_software_context_set_colorburst_phase (context, colorburstPhase);
+
 	hs_software_context_set_interlacing (context, interlacing_mode);
 
-	auto region = superFamicom.region;
+	bool isPAL = superFamicom.region == "PAL";
+
+	if (isPAL) {
+		hs_software_context_set_colorburst (context, 1.2 * width / 256.0, 1.0 / 6.0, 0.0);
+	} else {
+		hs_software_context_set_colorburst (context, 1.5 * width / 256.0, 1.0 / 3.0, colorburstPhase / 3.0);
+
+		if (interlacing_mode != HS_INTERLACING_ODD_FIELD)
+			colorburstPhase ^= 1;
+	}
 
 	uint multiplier = height / 240;
 	HsBorder overscan;
-	hs_border_init (&overscan, 0, (region == "PAL" ? 0 : 8 * multiplier));
+	hs_border_init (&overscan, 0, (isPAL ? 0 : 8 * multiplier));
 	hs_software_context_set_overscan (context, &overscan);
-
-	if (interlacing_mode != HS_INTERLACING_ODD_FIELD && region != "PAL")
-		colorburstPhase ^= 1;
 }
 
 // Double the fun!
