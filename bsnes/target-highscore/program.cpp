@@ -338,9 +338,8 @@ auto Program::videoFrame(const uint16* data, uint pitch, uint width, uint height
 			colorburstPhase ^= 1;
 	}
 
-	uint multiplier = height / 240;
 	HsBorder overscan;
-	hs_border_init (&overscan, 0, (isPAL ? 0 : 8 * multiplier));
+	hs_border_init (&overscan, 0, isPAL ? 0 : 8);
 	hs_software_context_set_overscan (context, &overscan);
 }
 
