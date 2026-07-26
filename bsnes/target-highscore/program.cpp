@@ -315,10 +315,17 @@ auto Program::videoFrame(const uint16* data, uint pitch, uint width, uint height
 
 	HsRectangle rect;
 	hs_rectangle_init (&rect, 0, 0, width, height);
-	hs_software_context_set_area (context, &rect);
-	hs_software_context_set_row_stride (context, width << 2);
 
+	if (interlacing_mode != HS_INTERLACING_NONE) {
+		hs_software_context_set_row_stride (context, width << 3);
+		rect.height /= 2;
+	} else {
+		hs_software_context_set_row_stride (context, width << 2);
+	}
+
+	hs_software_context_set_offset (context, interlacing_mode == HS_INTERLACING_EVEN_FIELD ? width << 2 : 0);
 	hs_software_context_set_interlacing (context, interlacing_mode);
+	hs_software_context_set_area (context, &rect);
 
 	bool isPAL = superFamicom.region == "PAL";
 
