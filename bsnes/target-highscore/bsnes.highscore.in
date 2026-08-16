@@ -8,6 +8,10 @@ Website=https://github.com/bsnes-emu/bsnes/
 LicensePath=LICENSE.txt
 Platforms=SuperNintendoEntertainmentSystem;SuperGameBoy;
 
+[Firmware:SuperGameBoy]
+sgb-rom=required
+sgb2-rom=required
+
 [Environment]
 # Otherwise OpenMP will busywait, see https://github.com/bsnes-emu/bsnes/issues/254
 OMP_WAIT_POLICY=passive
