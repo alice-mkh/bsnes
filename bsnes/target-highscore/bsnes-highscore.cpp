@@ -47,7 +47,7 @@ setup_input (bsnesCore *self)
 static HsSuperGameBoyFirmware
 get_sgb_firmware_id (bsnesCore *self)
 {
-  if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY_2)
+  if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SGB2)
     return HS_SUPER_GAME_BOY_FIRMWARE_SGB2_ROM;
 
   return HS_SUPER_GAME_BOY_FIRMWARE_SGB_ROM;
@@ -56,8 +56,8 @@ get_sgb_firmware_id (bsnesCore *self)
 static gboolean
 check_sgb_model (bsnesCore *self, GError **error)
 {
-  if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY ||
-      self->pending_sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY_2) {
+  if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SGB ||
+      self->pending_sgb_model == HS_GAME_BOY_MODEL_SGB2) {
     return TRUE;
   }
 
@@ -230,7 +230,7 @@ bsnes_core_load_rom (HsCore      *core,
     firmware_path = hs_core_query_firmware_path (core, get_sgb_firmware_id (self));
 
     if (!firmware_path) {
-      if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY_2)
+      if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SGB2)
         g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_FIRMWARE, "Missing Super Game Boy 2 ROM");
       else
         g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_FIRMWARE, "Missing Super Game Boy ROM");
@@ -292,7 +292,7 @@ maybe_reload_for_sgb (bsnesCore *self, GError **error)
   firmware_path = hs_core_query_firmware_path (HS_CORE (self), get_sgb_firmware_id (self));
 
   if (!firmware_path) {
-    if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SUPER_GAME_BOY_2)
+    if (self->pending_sgb_model == HS_GAME_BOY_MODEL_SGB2)
       g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_FIRMWARE, "Missing Super Game Boy 2 ROM");
     else
       g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_FIRMWARE, "Missing Super Game Boy ROM");
@@ -503,7 +503,7 @@ bsnes_core_class_init (bsnesCoreClass *klass)
 static void
 bsnes_core_init (bsnesCore *self)
 {
-  self->pending_sgb_model = HS_GAME_BOY_MODEL_SUPER_GAME_BOY;
+  self->pending_sgb_model = HS_GAME_BOY_MODEL_SGB;
 }
 
 static void
@@ -512,14 +512,14 @@ bsnes_game_boy_core_set_model (HsGameBoyCore *core, HsGameBoyModel model)
   bsnesCore *self = BSNES_CORE (core);
 
   switch (model) {
-  case HS_GAME_BOY_MODEL_GAME_BOY:
-  case HS_GAME_BOY_MODEL_GAME_BOY_POCKET:
-  case HS_GAME_BOY_MODEL_GAME_BOY_COLOR:
-  case HS_GAME_BOY_MODEL_GAME_BOY_ADVANCE:
+  case HS_GAME_BOY_MODEL_DMG:
+  case HS_GAME_BOY_MODEL_MGB:
+  case HS_GAME_BOY_MODEL_CGB:
+  case HS_GAME_BOY_MODEL_AGB:
     hs_core_log_literal (HS_CORE (self), HS_LOG_CRITICAL, "bsnes only supports Super Game Boy");
     break;
-  case HS_GAME_BOY_MODEL_SUPER_GAME_BOY:
-  case HS_GAME_BOY_MODEL_SUPER_GAME_BOY_2:
+  case HS_GAME_BOY_MODEL_SGB:
+  case HS_GAME_BOY_MODEL_SGB2:
     self->pending_sgb_model = model;
     break;
   default:
