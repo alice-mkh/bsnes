@@ -22,6 +22,17 @@ using namespace nall;
 
 #define gameboy SuperFamicom::icd.sameboy
 
+int interlaceField() {
+	if (SuperFamicom::ppu.interlace()) {
+		if (SuperFamicom::system.fastPPU())
+			return SuperFamicom::ppufast.field();
+		else
+			return SuperFamicom::ppu.field();
+	}
+
+	return -1;
+}
+
 struct Program : Emulator::Platform
 {
 	Program(Emulator::Interface *emulator);
@@ -317,7 +328,7 @@ auto Program::videoFrame(const uint16* data, uint pitch, uint width, uint height
 	filterRender(palette, (uint32*) fb, width << 2, (const uint16_t*)data, pitch, width, height);
 	hs_software_context_release_framebuffer (context);
 
-	HsInterlacingMode interlacing_mode = (HsInterlacingMode) emulator->interlaceField ();
+	HsInterlacingMode interlacing_mode = (HsInterlacingMode) interlaceField ();
 
 	HsRectangle rect;
 	hs_rectangle_init (&rect, 0, 0, width, height);

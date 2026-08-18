@@ -341,11 +341,4 @@ auto Interface::setRunAhead(bool runAhead) -> void {
   system.runAhead = runAhead;
 }
 
-auto Interface::interlaceField() -> int {
-  if (ppu.interlace())
-    return ppufast.field();
-
-  return -1;
-}
-
 }

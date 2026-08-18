@@ -104,8 +104,6 @@ struct Interface {
 
   virtual auto runAhead() -> bool { return false; }
   virtual auto setRunAhead(bool runAhead) -> void {}
-
-  virtual auto interlaceField() -> int { return -1; }
 };
 
 }

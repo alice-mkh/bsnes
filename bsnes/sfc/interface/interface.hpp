@@ -74,8 +74,6 @@ struct Interface : Emulator::Interface {
 
   auto runAhead() -> bool override;
   auto setRunAhead(bool runAhead) -> void override;
-
-  auto interlaceField() -> int override;
 };
 
 #include "configuration.hpp"
