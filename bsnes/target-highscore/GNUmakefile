@@ -2,7 +2,7 @@ name := bsnes-highscore
 local := false
 openmp := true
 
-flags += -Wno-attributes -Wno-narrowing -Wno-multichar -g -fPIC -fvisibility=hidden
+flags += -Wno-attributes -Wno-narrowing -Wno-multichar -g -fPIC -fvisibility=hidden -D__HIGHSCORE__
 
 version := 115
 commit := $(shell git describe --always --dirty --match '')

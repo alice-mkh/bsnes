@@ -1,6 +1,11 @@
 #include "gb.h"
 #include <string.h>
 
+#ifdef __HIGHSCORE__
+#include <stdlib.h>
+static uint32_t *image;
+#endif
+
 /* TODO: Emulation is VERY basic and assumes the ROM correctly uses the printer's interface.
          Incorrect usage is not correctly emulated, as it's not well documented, nor do I
          have my own GB Printer to figure it out myself.
@@ -21,7 +26,15 @@ static void handle_command(GB_gameboy_t *gb)
         case GB_PRINTER_START_COMMAND:
             if (gb->printer.command_length == 4) {
                 gb->printer.status = 6; /* Printing */
+#ifdef __HIGHSCORE__
+                // HACK: We get a SIGBUS crash with image on stack. I don't know why, but
+                // it works with it on heap insteadIncreasing stack size with rlimit
+                // didn't seem to do much good, maybe it's something to do with libco
+                // instead
+                image = malloc(gb->printer.image_offset * sizeof(uint32_t));
+#else
                 uint32_t image[gb->printer.image_offset];
+#endif
                 uint8_t palette = gb->printer.command_data[2];
                 uint32_t colors[4] = {gb->rgb_encode_callback(gb, 0xFF, 0xFF, 0xFF),
                                       gb->rgb_encode_callback(gb, 0xAA, 0xAA, 0xAA),
@@ -41,6 +54,9 @@ static void handle_command(GB_gameboy_t *gb)
                 }
                 
                 gb->printer.image_offset = 0;
+#ifdef __HIGHSCORE__
+                free(image);
+#endif
             }
             break;
             
