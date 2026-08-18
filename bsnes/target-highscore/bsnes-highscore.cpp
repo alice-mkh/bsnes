@@ -16,6 +16,7 @@ struct _bsnesCore
 
   gboolean loaded;
   HsSuperNesAccessory accessory;
+  HsGameBoyAccessory gb_accessory;
 };
 
 static void bsnes_game_boy_core_init (HsGameBoyCoreInterface *iface);
@@ -186,6 +187,52 @@ try_rename_save_files (bsnesCore   *self,
   return TRUE;
 }
 
+static void
+print_image_cb (GB_gameboy_t *gb,
+                uint32_t     *image,
+                uint8_t       height,
+                uint8_t       top_margin,
+                uint8_t       bottom_margin,
+                uint8_t       exposure)
+{
+  bsnesCore *self = BSNES_CORE (GB_get_user_data (gb));
+
+  guint8 width = 160;
+  guint8 *data = g_new (guint8, width * height);
+
+  for (int i = 0; i < width * height; i++)
+    data[i] = image[i] & 0xFF;
+
+  GBytes *bytes = g_bytes_new_take (data, width * height);
+
+  hs_game_boy_core_emit_print_started (HS_GAME_BOY_CORE (self), bytes, width, height);
+
+  g_bytes_unref (bytes);
+}
+
+static void
+printer_done_cb (GB_gameboy_t *gb)
+{
+  bsnesCore *self = BSNES_CORE (GB_get_user_data (gb));
+
+  hs_game_boy_core_emit_print_done (HS_GAME_BOY_CORE (self));
+}
+
+static void
+update_gb_accessory (bsnesCore *self)
+{
+  switch (self->gb_accessory) {
+    case HS_GAME_BOY_ACCESSORY_NONE:
+      // FIXME: SameBoy doesn't have a way to unplug it?..
+      break;
+    case HS_GAME_BOY_ACCESSORY_PRINTER:
+      GB_connect_printer (&gameboy, print_image_cb, printer_done_cb);
+      break;
+    default:
+      g_assert_not_reached ();
+  }
+}
+
 static gboolean
 bsnes_core_load_rom (HsCore      *core,
                      const char **rom_paths,
@@ -249,6 +296,11 @@ bsnes_core_load_rom (HsCore      *core,
   self->sgb_model = self->pending_sgb_model;
   self->loaded = TRUE;
 
+  if (platform == HS_PLATFORM_SUPER_GAME_BOY) {
+    GB_set_user_data (&gameboy, self);
+    update_gb_accessory (self);
+  }
+
   setup_input (self);
 
   return TRUE;
@@ -304,6 +356,12 @@ maybe_reload_for_sgb (bsnesCore *self, GError **error)
 
   self->program->load ();
   self->sgb_model = self->pending_sgb_model;
+
+  if (self->sgb_model == HS_GAME_BOY_MODEL_SGB2) {
+    GB_set_user_data (&gameboy, self);
+
+    update_gb_accessory (self);
+  }
 
   setup_input (self);
 
@@ -528,9 +586,24 @@ bsnes_game_boy_core_set_model (HsGameBoyCore *core, HsGameBoyModel model)
 }
 
 static void
+bsnes_game_boy_core_set_accessory (HsGameBoyCore *core, HsGameBoyAccessory accessory)
+{
+  bsnesCore *self = BSNES_CORE (core);
+
+  if (self->gb_accessory == accessory)
+    return;
+
+  self->gb_accessory = accessory;
+
+  if (self->sgb_model == HS_GAME_BOY_MODEL_SGB2 && self->loaded)
+    update_gb_accessory (self);
+}
+
+static void
 bsnes_game_boy_core_init (HsGameBoyCoreInterface *iface)
 {
   iface->set_model = bsnes_game_boy_core_set_model;
+  iface->set_accessory = bsnes_game_boy_core_set_accessory;
 }
 
 static void
