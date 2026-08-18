@@ -1,5 +1,7 @@
 #include <emulator/emulator.hpp>
-#include <sfc/interface/interface.hpp>
+#undef unreachable
+
+#include <sfc/sfc.hpp>
 #include <filter/filter.hpp>
 #include <nall/directory.hpp>
 #include <nall/instance.hpp>
@@ -15,6 +17,10 @@ using namespace nall;
 #include <heuristics/bs-memory.cpp>
 
 #include "resources.hpp"
+
+#undef platform
+
+#define gameboy SuperFamicom::icd.sameboy
 
 struct Program : Emulator::Platform
 {
