@@ -221,6 +221,10 @@ printer_done_cb (GB_gameboy_t *gb)
 static void
 update_gb_accessory (bsnesCore *self)
 {
+  // Only SGB2 has a link cable port, not SGB
+  if (self->sgb_model == HS_GAME_BOY_MODEL_SGB)
+    return;
+
   switch (self->gb_accessory) {
     case HS_GAME_BOY_ACCESSORY_NONE:
       // FIXME: SameBoy doesn't have a way to unplug it?..
