@@ -5,6 +5,8 @@ Commit=@commit@
 Module=bsnes-highscore.so
 Authors=byuu et all;
 Website=https://github.com/bsnes-emu/bsnes/
+SourceCode=https://github.com/highscore-emu/bsnes/
+Issues=https://github.com/highscore-emu/bsnes/issues
 LicensePath=LICENSE.txt
 Platforms=SuperNintendoEntertainmentSystem;SuperGameBoy;
 
